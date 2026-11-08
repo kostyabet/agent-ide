@@ -1,6 +1,7 @@
 #!/usr/bin/env swift
-// Generates Resources/AppIcon.icns with no external assets: a rounded "squircle"
-// with a deck-of-cards glyph, so the app is easy to spot in Finder/Spotlight/Launchpad.
+// Generates Resources/AppIcon.icns with no external assets: a dark "mixing console"
+// (пульт) — three channel faders with coloured tracks and capped knobs — so the app
+// is easy to spot in Finder/Spotlight/Launchpad.
 import AppKit
 
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -10,6 +11,55 @@ let icns = root.appendingPathComponent("Resources/AppIcon.icns")
 try? FileManager.default.removeItem(at: iconset)
 try! FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 
+func rgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> NSColor {
+    NSColor(calibratedRed: r/255, green: g/255, blue: b/255, alpha: a)
+}
+func squircle(_ r: NSRect) -> NSBezierPath {
+    NSBezierPath(roundedRect: r, xRadius: r.width*0.225, yRadius: r.width*0.225)
+}
+func rr(_ r: NSRect, _ rad: CGFloat) -> NSBezierPath { NSBezierPath(roundedRect: r, xRadius: rad, yRadius: rad) }
+func withShadow(blur: CGFloat, dy: CGFloat, alpha: CGFloat, _ body: () -> Void) {
+    NSGraphicsContext.saveGraphicsState()
+    let sh = NSShadow(); sh.shadowColor = NSColor(white: 0, alpha: alpha)
+    sh.shadowBlurRadius = blur; sh.shadowOffset = NSSize(width: 0, height: dy); sh.set()
+    body()
+    NSGraphicsContext.restoreGraphicsState()
+}
+
+func drawIcon(in r: NSRect) {
+    let sq = squircle(r)
+    // slate gradient background
+    NSGradient(colors: [rgb(44,49,61), rgb(20,23,30)])!.draw(in: sq, angle: -90)
+    // glossy top light
+    NSGraphicsContext.saveGraphicsState()
+    sq.addClip()
+    NSGradient(colors: [NSColor(white: 1, alpha: 0.20), NSColor(white: 1, alpha: 0)])!
+        .draw(in: NSRect(x: r.minX, y: r.midY, width: r.width, height: r.height/2), angle: -90)
+    NSGraphicsContext.restoreGraphicsState()
+
+    // three channel faders
+    let colGap = r.width*0.24, startX = r.midX - colGap
+    let trackH = r.height*0.56, trackW = r.width*0.045
+    let capW = r.width*0.17, capH = r.height*0.055
+    let pos: [CGFloat] = [0.74, 0.34, 0.56]
+    let colors = [rgb(80,205,255), rgb(110,235,150), rgb(255,180,70)]
+    for k in 0..<3 {
+        let cx = startX + CGFloat(k)*colGap
+        let bottom = r.midY - trackH/2
+        rgb(0,0,0,0.35).setFill()
+        rr(NSRect(x: cx-trackW/2, y: bottom, width: trackW, height: trackH), trackW*0.5).fill()
+        let ky = bottom + trackH*pos[k]
+        colors[k].setFill()
+        rr(NSRect(x: cx-trackW/2, y: bottom, width: trackW, height: ky-bottom), trackW*0.5).fill()
+        withShadow(blur: r.width*0.03, dy: -r.width*0.01, alpha: 0.4) {
+            rgb(238,241,247).setFill()
+            rr(NSRect(x: cx-capW/2, y: ky-capH/2, width: capW, height: capH), capH*0.3).fill()
+        }
+        rgb(255,255,255,0.5).setFill()
+        rr(NSRect(x: cx-capW/2, y: ky+capH*0.08, width: capW, height: capH*0.34), capH*0.2).fill()
+    }
+}
+
 func render(_ px: Int) -> Data {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px,
                               bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
@@ -17,33 +67,8 @@ func render(_ px: Int) -> Data {
                               bytesPerRow: 0, bitsPerPixel: 0)!
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    let s = CGFloat(px)
-
-    // Rounded-rect background with a deep indigo→teal gradient (macOS icon grid inset).
-    let inset = s * 0.10
-    let rect = NSRect(x: inset, y: inset, width: s - 2 * inset, height: s - 2 * inset)
-    let path = NSBezierPath(roundedRect: rect, xRadius: rect.width * 0.225, yRadius: rect.width * 0.225)
-    let gradient = NSGradient(colors: [
-        NSColor(calibratedRed: 0.16, green: 0.18, blue: 0.42, alpha: 1),
-        NSColor(calibratedRed: 0.09, green: 0.55, blue: 0.56, alpha: 1),
-    ])!
-    gradient.draw(in: path, angle: -90)
-
-    // Three stacked "cards".
-    let cardW = rect.width * 0.52
-    let cardH = rect.height * 0.14
-    let cx = rect.midX - cardW / 2
-    let cys: [CGFloat] = [rect.midY + rect.height * 0.14,
-                          rect.midY - rect.height * 0.02,
-                          rect.midY - rect.height * 0.18]
-    let alphas: [CGFloat] = [0.55, 0.78, 1.0]
-    for (cy, a) in zip(cys, alphas) {
-        let card = NSBezierPath(roundedRect: NSRect(x: cx, y: cy, width: cardW, height: cardH),
-                                xRadius: cardH * 0.35, yRadius: cardH * 0.35)
-        NSColor(white: 1, alpha: a).setFill()
-        card.fill()
-    }
-
+    let s = CGFloat(px), inset = s*0.10
+    drawIcon(in: NSRect(x: inset, y: inset, width: s - 2*inset, height: s - 2*inset))
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])!
 }
