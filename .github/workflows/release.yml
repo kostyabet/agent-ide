@@ -19,7 +19,7 @@ jobs:
   release:
     # Intel runner: arm64 macOS runners aren't available on all plans. The build is
     # universal (arm64 + x86_64), so the app still runs natively on Apple Silicon.
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
 
