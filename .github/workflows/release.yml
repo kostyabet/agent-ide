@@ -17,9 +17,16 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-14
+    # Intel runner: arm64 macOS runners aren't available on all plans. The build is
+    # universal (arm64 + x86_64), so the app still runs natively on Apple Silicon.
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select Xcode 16 (Swift 6)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Resolve version
         id: v

@@ -5,11 +5,14 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${1:-release}"
+# Universal binary so the app runs natively on both Apple Silicon and Intel — and so it
+# can be built on an Intel CI runner (arm64 macOS runners aren't available on all plans).
+ARCHS="--arch arm64 --arch x86_64"
 
-echo "→ swift build -c $CONFIG"
-swift build -c "$CONFIG" --package-path "$ROOT"
+echo "→ swift build -c $CONFIG (universal)"
+swift build -c "$CONFIG" $ARCHS --package-path "$ROOT"
 
-BIN="$(swift build -c "$CONFIG" --package-path "$ROOT" --show-bin-path)/Deck"
+BIN="$(swift build -c "$CONFIG" $ARCHS --package-path "$ROOT" --show-bin-path)/Deck"
 APP="$ROOT/dist/Deck.app"
 
 rm -rf "$APP"
