@@ -1,0 +1,58 @@
+name: Release
+
+# Cut a release by pushing a version tag:
+#   git tag v0.1.0 && git push origin v0.1.0
+# or run it by hand from the Actions tab (workflow_dispatch) with a version like v0.1.0.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write   # needed to create the GitHub Release
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: v
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build DMG
+        run: ./scripts/make-dmg.sh "${{ steps.v.outputs.version }}"
+
+      - name: Write release notes
+        run: |
+          cat > dist/NOTES.md <<'EOF'
+          ## Установка
+          1. Скачай `Deck-<version>.dmg`, открой, перетащи **Deck** в **Applications**.
+          2. Приложение не подписано Apple Developer ID, поэтому при первом запуске macOS его заблокирует.
+             Сними карантин один раз в Терминале:
+             ```
+             xattr -dr com.apple.quarantine /Applications/Deck.app
+             ```
+             (или правый клик по `Deck.app` → «Открыть» → «Открыть»).
+          3. Иконка появится в меню-баре. Панель вызывается хоткеем **⌥Space**.
+          EOF
+          sed -i '' "s/<version>/${{ steps.v.outputs.version }}/g" dist/NOTES.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.v.outputs.version }}" \
+            "dist/Deck-${{ steps.v.outputs.version }}.dmg" \
+            --title "Deck ${{ steps.v.outputs.version }}" \
+            --notes-file dist/NOTES.md
